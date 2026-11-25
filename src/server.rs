@@ -3,37 +3,14 @@ use std::process::Command;
 use std::sync::Arc;
 use std::thread;
 
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use base64::Engine as _;
-use serde::Deserialize;
 use serde_json::json;
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
-use crate::color::Rgba;
-use crate::qr::{self, EccLevel, LogoConfig, LogoShape, ModuleStyle, OutputFormat, QrConfig};
+use crate::qr::{self, GenerateRequest, OutputFormat};
 use crate::QrError;
 
-const INDEX_HTML: &str = include_str!("../web/index.html");
+const INDEX_HTML: &str = include_str!("../public/index.html");
 const MAX_BODY_BYTES: usize = 10 * 1024 * 1024;
-
-#[derive(Debug, Deserialize)]
-struct GenerateRequest {
-    data: String,
-    format: Option<String>,
-    size: Option<u32>,
-    quiet_zone: Option<u32>,
-    fg: Option<String>,
-    fg_end: Option<String>,
-    bg: Option<String>,
-    ecc: Option<String>,
-    style: Option<String>,
-    logo_base64: Option<String>,
-    logo_scale: Option<f32>,
-    logo_padding: Option<u32>,
-    logo_shape: Option<String>,
-    logo_bg: Option<String>,
-    clear_logo_modules: Option<bool>,
-}
 
 /// Starts the embedded multi-threaded HTTP server for the QR code studio web UI.
 pub fn serve(host: &str, port: u16, open_browser: bool) -> Result<(), QrError> {
@@ -79,11 +56,26 @@ fn open_url(url: &str) {
     let _ = Command::new("xdg-open").arg(url).spawn();
 }
 
+fn server_html() -> String {
+    INDEX_HTML.replacen(
+        "</head>",
+        r#"  <script>window.__QRFORGE_MODE__="server";</script>
+</head>"#,
+        1,
+    )
+}
+
 fn handle_request(mut request: Request) {
     let path = request.url().split('?').next().unwrap_or("/");
     match (request.method(), path) {
+        (&Method::Head, "/" | "/index.html") => {
+            let resp = Response::empty(200)
+                .with_header(header("Content-Type", "text/html; charset=utf-8"))
+                .with_header(header("Cache-Control", "no-store"));
+            let _ = request.respond(resp);
+        }
         (&Method::Get, "/" | "/index.html") => {
-            let resp = Response::from_string(INDEX_HTML)
+            let resp = Response::from_string(server_html())
                 .with_status_code(StatusCode(200))
                 .with_header(header("Content-Type", "text/html; charset=utf-8"))
                 .with_header(header("Cache-Control", "no-store"));
@@ -130,95 +122,10 @@ fn handle_generate(request: &mut Request) -> Response<std::io::Cursor<Vec<u8>>> 
         }
     };
 
-    let format = match req.format.as_deref().unwrap_or("png").trim().to_ascii_lowercase().as_str() {
-        "png" => OutputFormat::Png,
-        "svg" => OutputFormat::Svg,
-        other => {
-            return json_response(
-                400,
-                &json!({ "error": format!("unknown format '{other}' (expected png or svg)") }).to_string(),
-            );
-        }
+    let (cfg, format) = match qr::parse_generate_request(req) {
+        Ok(parsed) => parsed,
+        Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
     };
-
-    let mut cfg = QrConfig::new(req.data);
-    if let Some(size) = req.size {
-        cfg.size = size;
-    }
-    if let Some(qz) = req.quiet_zone {
-        cfg.quiet_zone = qz;
-    }
-
-    if let Some(fg) = req.fg.as_deref() {
-        match Rgba::parse(fg) {
-            Ok(c) => cfg.fg = c,
-            Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-        }
-    }
-    if let Some(fg_end) = req.fg_end.as_deref().filter(|s| !s.trim().is_empty()) {
-        match Rgba::parse(fg_end) {
-            Ok(c) => cfg.fg_gradient_end = Some(c),
-            Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-        }
-    }
-    if let Some(bg) = req.bg.as_deref() {
-        match Rgba::parse(bg) {
-            Ok(c) => cfg.bg = c,
-            Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-        }
-    }
-    if let Some(ecc) = req.ecc.as_deref() {
-        match EccLevel::parse(ecc) {
-            Ok(e) => cfg.ecc = e,
-            Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-        }
-    }
-    if let Some(style) = req.style.as_deref() {
-        match ModuleStyle::parse(style) {
-            Ok(s) => cfg.module_style = s,
-            Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-        }
-    }
-
-    if let Some(raw_logo) = req.logo_base64.as_deref().filter(|s| !s.trim().is_empty()) {
-        let clean_b64 = raw_logo
-            .split_once(";base64,")
-            .map(|(_, rest)| rest)
-            .unwrap_or(raw_logo)
-            .trim();
-        let logo_bytes = match BASE64_STANDARD.decode(clean_b64) {
-            Ok(b) => b,
-            Err(e) => {
-                return json_response(
-                    400,
-                    &json!({ "error": format!("invalid logo base64: {e}") }).to_string(),
-                );
-            }
-        };
-        let mut logo = LogoConfig::new(logo_bytes);
-        if let Some(scale) = req.logo_scale {
-            logo.scale = scale;
-        }
-        if let Some(pad) = req.logo_padding {
-            logo.padding_px = pad;
-        }
-        if let Some(shape) = req.logo_shape.as_deref() {
-            match LogoShape::parse(shape) {
-                Ok(s) => logo.shape = s,
-                Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-            }
-        }
-        if let Some(lbg) = req.logo_bg.as_deref().filter(|s| !s.trim().is_empty()) {
-            match Rgba::parse(lbg) {
-                Ok(c) => logo.background = Some(c),
-                Err(e) => return json_response(400, &json!({ "error": e.to_string() }).to_string()),
-            }
-        }
-        if let Some(clear) = req.clear_logo_modules {
-            logo.clear_modules = clear;
-        }
-        cfg.logo = Some(logo);
-    }
 
     let output = match qr::generate(&cfg, format) {
         Ok(out) => out,

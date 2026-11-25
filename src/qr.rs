@@ -1,10 +1,12 @@
 use std::fmt::Write as _;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine as _;
 use image::imageops::FilterType;
 use qrcodegen::{QrCode, QrCodeEcc};
+use serde::Deserialize;
 
 use crate::color::{contrast_ratio, Rgba};
 use crate::QrError;
@@ -171,8 +173,101 @@ struct PreparedLogo {
     shape: LogoShape,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GenerateRequest {
+    pub data: String,
+    pub format: Option<String>,
+    pub size: Option<u32>,
+    pub quiet_zone: Option<u32>,
+    pub fg: Option<String>,
+    pub fg_end: Option<String>,
+    pub bg: Option<String>,
+    pub ecc: Option<String>,
+    pub style: Option<String>,
+    pub logo_base64: Option<String>,
+    pub logo_scale: Option<f32>,
+    pub logo_padding: Option<u32>,
+    pub logo_shape: Option<String>,
+    pub logo_bg: Option<String>,
+    pub clear_logo_modules: Option<bool>,
+}
+
+/// Parses a JSON `GenerateRequest` into a validated `(QrConfig, OutputFormat)`.
+pub fn parse_generate_request(req: GenerateRequest) -> Result<(QrConfig, OutputFormat), QrError> {
+    let format = match req
+        .format
+        .as_deref()
+        .unwrap_or("png")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => OutputFormat::Png,
+        "svg" => OutputFormat::Svg,
+        other => {
+            return Err(QrError::InvalidInput(format!(
+                "unknown format '{other}' (expected png or svg)"
+            )));
+        }
+    };
+
+    let mut cfg = QrConfig::new(req.data);
+    if let Some(size) = req.size {
+        cfg.size = size;
+    }
+    if let Some(qz) = req.quiet_zone {
+        cfg.quiet_zone = qz;
+    }
+    if let Some(fg) = req.fg.as_deref() {
+        cfg.fg = Rgba::parse(fg)?;
+    }
+    if let Some(fg_end) = req.fg_end.as_deref().filter(|s| !s.trim().is_empty()) {
+        cfg.fg_gradient_end = Some(Rgba::parse(fg_end)?);
+    }
+    if let Some(bg) = req.bg.as_deref() {
+        cfg.bg = Rgba::parse(bg)?;
+    }
+    if let Some(ecc) = req.ecc.as_deref() {
+        cfg.ecc = EccLevel::parse(ecc)?;
+    }
+    if let Some(style) = req.style.as_deref() {
+        cfg.module_style = ModuleStyle::parse(style)?;
+    }
+
+    if let Some(raw_logo) = req.logo_base64.as_deref().filter(|s| !s.trim().is_empty()) {
+        let clean_b64 = raw_logo
+            .split_once(";base64,")
+            .map(|(_, rest)| rest)
+            .unwrap_or(raw_logo)
+            .trim();
+        let logo_bytes = BASE64_STANDARD
+            .decode(clean_b64)
+            .map_err(|e| QrError::InvalidInput(format!("invalid logo base64: {e}")))?;
+        let mut logo = LogoConfig::new(logo_bytes);
+        if let Some(scale) = req.logo_scale {
+            logo.scale = scale;
+        }
+        if let Some(pad) = req.logo_padding {
+            logo.padding_px = pad;
+        }
+        if let Some(shape) = req.logo_shape.as_deref() {
+            logo.shape = LogoShape::parse(shape)?;
+        }
+        if let Some(lbg) = req.logo_bg.as_deref().filter(|s| !s.trim().is_empty()) {
+            logo.background = Some(Rgba::parse(lbg)?);
+        }
+        if let Some(clear) = req.clear_logo_modules {
+            logo.clear_modules = clear;
+        }
+        cfg.logo = Some(logo);
+    }
+
+    Ok((cfg, format))
+}
+
 /// Encodes and renders a QR code with optional color customization and center logo embedding.
 pub fn generate(config: &QrConfig, format: OutputFormat) -> Result<QrOutput, QrError> {
+    #[cfg(not(target_arch = "wasm32"))]
     let start = Instant::now();
 
     validate_config(config)?;
@@ -202,6 +297,11 @@ pub fn generate(config: &QrConfig, format: OutputFormat) -> Result<QrOutput, QrE
         OutputFormat::Svg => render_svg(&qr, qr_size, config)?,
     };
 
+    #[cfg(not(target_arch = "wasm32"))]
+    let generation_us = start.elapsed().as_micros();
+    #[cfg(target_arch = "wasm32")]
+    let generation_us = 0;
+
     Ok(QrOutput {
         bytes,
         format,
@@ -211,7 +311,7 @@ pub fn generate(config: &QrConfig, format: OutputFormat) -> Result<QrOutput, QrE
         ecc_used: ecc_label,
         contrast_ratio: contrast,
         warnings,
-        generation_us: start.elapsed().as_micros(),
+        generation_us,
     })
 }
 

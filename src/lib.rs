@@ -1,6 +1,9 @@
 pub mod color;
 pub mod qr;
+#[cfg(feature = "cli")]
 pub mod server;
+#[cfg(feature = "wasm")]
+pub mod wasm;
 
 use std::fmt;
 

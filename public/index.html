@@ -588,9 +588,9 @@
   <header>
     <div class="brand">
       <span>qrforge</span>
-      <span class="brand-badge">Rust QR Studio</span>
+      <span id="engine-badge" class="brand-badge">Rust WASM</span>
     </div>
-    <span class="hint">Fast native Rust PNG &amp; SVG generation · Automatic contrast &amp; ECC checks</span>
+    <span class="hint">Fast Rust PNG &amp; SVG generation · Automatic contrast &amp; ECC checks</span>
   </header>
 
   <main>
@@ -1014,6 +1014,22 @@
       const previewImg = $('qr-preview');
       const warningBox = $('warning-box');
       const cliCmdEl = $('cli-cmd');
+      const engineBadge = $('engine-badge');
+      const isServerMode = window.__QRFORGE_MODE__ === 'server';
+      if (engineBadge) {
+        engineBadge.textContent = isServerMode ? 'Rust Local Server' : 'Rust WASM';
+      }
+
+      let wasmModulePromise = null;
+      const getWasm = () => {
+        if (!wasmModulePromise) {
+          wasmModulePromise = import('./pkg/qrforge_wasm.js').then(async (mod) => {
+            await mod.default();
+            return mod;
+          });
+        }
+        return wasmModulePromise;
+      };
 
       let logoBase64 = '';
       let logoFilePathHint = 'logo.png';
@@ -1021,6 +1037,7 @@
       let latestPngBlob = null;
       let debounceTimer = null;
       let activeAbort = null;
+      let renderSeq = 0;
 
       const normalizePickerHex = (val) => {
         const m = val.trim().match(/^#?([0-9a-fA-F]{6})/);
@@ -1185,54 +1202,84 @@
         cliCmdEl.textContent = parts.join(' ');
       };
 
+      const generateAsset = async (format, signal) => {
+        const payload = buildPayload(format);
+        if (isServerMode) {
+          const res = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(err.error || 'Failed to generate QR code.');
+          }
+          const blob = await res.blob();
+          const us = Number(res.headers.get('X-QR-Gen-Time-Us') || 0);
+          const rawWarn = res.headers.get('X-QR-Warnings');
+          return {
+            blob,
+            ms: us / 1000,
+            version: res.headers.get('X-QR-Version') || '?',
+            dimensions: res.headers.get('X-QR-Dimensions') || '?',
+            ecc: res.headers.get('X-QR-Ecc') || '?',
+            contrast: res.headers.get('X-QR-Contrast'),
+            warnings: rawWarn ? JSON.parse(rawWarn) : []
+          };
+        }
+
+        const wasm = await getWasm();
+        const t0 = performance.now();
+        const result = wasm.generate_qr(JSON.stringify(payload));
+        try {
+          const ms = performance.now() - t0;
+          const bytes = result.bytes;
+          const blob = new Blob([bytes], { type: result.content_type });
+          const warnings = JSON.parse(result.warnings_json || '[]');
+          return {
+            blob,
+            ms,
+            version: String(result.qr_version),
+            dimensions: `${result.width}x${result.height}`,
+            ecc: result.ecc_used,
+            contrast: result.contrast ?? null,
+            warnings
+          };
+        } finally {
+          result.free();
+        }
+      };
+
       const renderPreview = async () => {
         updateCliSnippet();
         const form = $('qr-form');
         if (!form.checkValidity()) return;
 
+        const seq = ++renderSeq;
         if (activeAbort) activeAbort.abort();
         activeAbort = new AbortController();
 
         try {
-          const res = await fetch('/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildPayload('png')),
-            signal: activeAbort.signal
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: res.statusText }));
-            warningBox.textContent = err.error || 'Failed to generate QR code.';
-            warningBox.style.display = 'block';
-            return;
-          }
+          const asset = await generateAsset('png', activeAbort.signal);
+          if (seq !== renderSeq) return;
 
-          const blob = await res.blob();
-          latestPngBlob = blob;
+          latestPngBlob = asset.blob;
           if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-          currentBlobUrl = URL.createObjectURL(blob);
+          currentBlobUrl = URL.createObjectURL(asset.blob);
           previewImg.src = currentBlobUrl;
 
-          const us = Number(res.headers.get('X-QR-Gen-Time-Us') || 0);
-          $('meta-time').textContent = `${(us / 1000).toFixed(2)} ms`;
-          $('meta-version').textContent = `v${res.headers.get('X-QR-Version') || '?'} (${res.headers.get('X-QR-Dimensions') || '?'})`;
-          $('meta-ecc').textContent = `ECC ${res.headers.get('X-QR-Ecc') || '?'}`;
-          const contrast = res.headers.get('X-QR-Contrast');
-          $('meta-contrast').textContent = contrast ? `Contrast ${contrast}:1` : 'Transparent bg';
+          $('meta-time').textContent = `${asset.ms.toFixed(2)} ms`;
+          $('meta-version').textContent = `v${asset.version} (${asset.dimensions})`;
+          $('meta-ecc').textContent = `ECC ${asset.ecc}`;
+          $('meta-contrast').textContent = asset.contrast ? `Contrast ${asset.contrast}:1` : 'Transparent bg';
 
-          const rawWarn = res.headers.get('X-QR-Warnings');
-          if (rawWarn) {
-            const warnings = JSON.parse(rawWarn);
-            warningBox.textContent = warnings.join(' ');
-            warningBox.style.display = warnings.length ? 'block' : 'none';
-          } else {
-            warningBox.style.display = 'none';
-          }
+          warningBox.textContent = asset.warnings.join(' ');
+          warningBox.style.display = asset.warnings.length ? 'block' : 'none';
         } catch (err) {
-          if (err.name !== 'AbortError') {
-            warningBox.textContent = 'Preview request failed.';
-            warningBox.style.display = 'block';
-          }
+          if (err && err.name === 'AbortError') return;
+          warningBox.textContent = (err && err.message) ? String(err.message) : String(err || 'Preview generation failed.');
+          warningBox.style.display = 'block';
         }
       };
 
@@ -1243,19 +1290,18 @@
 
       const downloadFormat = async (format) => {
         if (!$('qr-form').checkValidity()) return;
-        const res = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildPayload(format))
-        });
-        if (!res.ok) return;
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `qrforge.${format}`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        try {
+          const asset = await generateAsset(format);
+          const url = URL.createObjectURL(asset.blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `qrforge.${format}`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+          warningBox.textContent = (err && err.message) ? String(err.message) : String(err || 'Download failed.');
+          warningBox.style.display = 'block';
+        }
       };
 
       $('download-png').addEventListener('click', () => downloadFormat('png'));
