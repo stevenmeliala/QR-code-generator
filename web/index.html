@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- MANDATORY: Declare support for both light and dark themes -->
+  <meta name="color-scheme" content="light dark">
+  <title>qrforge — Rust QR Code Studio</title>
+  <style>
+    :root {
+      --bg-light: #f4f6fb;
+      --bg-dark: #0b1120;
+      --surface-light: #ffffff;
+      --surface-dark: #131c31;
+      --surface-alt-light: #eef2f8;
+      --surface-alt-dark: #1b2742;
+      --text-light: #0f172a;
+      --text-dark: #f1f5f9;
+      --muted-light: #475569;
+      --muted-dark: #94a3b8;
+      --border-light: #cbd5e1;
+      --border-dark: #2b3957;
+      --accent-light: #1d4ed8;
+      --accent-dark: #60a5fa;
+      --accent-text-light: #ffffff;
+      --accent-text-dark: #081229;
+      --danger-light: #b91c1c;
+      --danger-dark: #fca5a5;
+      --danger-bg-light: #fef2f2;
+      --danger-bg-dark: #3b1219;
+      --ok-light: #15803d;
+      --ok-dark: #86efac;
+      --warn-light: #a16207;
+      --warn-dark: #fde047;
+      --warn-bg-light: #fefce8;
+      --warn-bg-dark: #2c240a;
+      --scroll-track-light: #e2e8f0;
+      --scroll-track-dark: #131c31;
+      --scroll-thumb-light: #64748b;
+      --scroll-thumb-dark: #64748b;
+
+      --bg: var(--bg-light);
+      --surface: var(--surface-light);
+      --surface-alt: var(--surface-alt-light);
+      --text: var(--text-light);
+      --muted: var(--muted-light);
+      --border: var(--border-light);
+      --accent: var(--accent-light);
+      --accent-text: var(--accent-text-light);
+      --danger: var(--danger-light);
+      --danger-bg: var(--danger-bg-light);
+      --ok: var(--ok-light);
+      --warn: var(--warn-light);
+      --warn-bg: var(--warn-bg-light);
+      --scroll-track: var(--scroll-track-light);
+      --scroll-thumb: var(--scroll-thumb-light);
+
+      @media (prefers-color-scheme: dark) {
+        --bg: var(--bg-dark);
+        --surface: var(--surface-dark);
+        --surface-alt: var(--surface-alt-dark);
+        --text: var(--text-dark);
+        --muted: var(--muted-dark);
+        --border: var(--border-dark);
+        --accent: var(--accent-dark);
+        --accent-text: var(--accent-text-dark);
+        --danger: var(--danger-dark);
+        --danger-bg: var(--danger-bg-dark);
+        --ok: var(--ok-dark);
+        --warn: var(--warn-dark);
+        --warn-bg: var(--warn-bg-dark);
+        --scroll-track: var(--scroll-track-dark);
+        --scroll-thumb: var(--scroll-thumb-dark);
+      }
+
+      @supports (color: light-dark(white, black)) {
+        --bg: light-dark(var(--bg-light), var(--bg-dark));
+        --surface: light-dark(var(--surface-light), var(--surface-dark));
+        --surface-alt: light-dark(var(--surface-alt-light), var(--surface-alt-dark));
+        --text: light-dark(var(--text-light), var(--text-dark));
+        --muted: light-dark(var(--muted-light), var(--muted-dark));
+        --border: light-dark(var(--border-light), var(--border-dark));
+        --accent: light-dark(var(--accent-light), var(--accent-dark));
+        --accent-text: light-dark(var(--accent-text-light), var(--accent-text-dark));
+        --danger: light-dark(var(--danger-light), var(--danger-dark));
+        --danger-bg: light-dark(var(--danger-bg-light), var(--danger-bg-dark));
+        --ok: light-dark(var(--ok-light), var(--ok-dark));
+        --warn: light-dark(var(--warn-light), var(--warn-dark));
+        --warn-bg: light-dark(var(--warn-bg-light), var(--warn-bg-dark));
+        --scroll-track: light-dark(var(--scroll-track-light), var(--scroll-track-dark));
+        --scroll-thumb: light-dark(var(--scroll-thumb-light), var(--scroll-thumb-dark));
+      }
+
+      color-scheme: light dark;
+      accent-color: var(--accent);
+      scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+    }
+
+    @supports not (scrollbar-color: auto) {
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--scroll-track);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--scroll-thumb);
+        border-radius: 999px;
+      }
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .visually-hidden:where(:not(:focus-within, :active)) {
+      position: absolute !important;
+      clip-path: inset(50%) !important;
+      overflow: hidden !important;
+      width: 1px !important;
+      height: 1px !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      white-space: nowrap !important;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 700;
+      font-size: 1.125rem;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: minmax(320px, 1.15fr) minmax(300px, 0.85fr);
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .section-title {
+      margin: 0 0 0.75rem;
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    label, .field-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    .hint {
+      display: block;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    textarea, input[type="text"], select {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.92rem;
+    }
+
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+
+    input[type="color"] {
+      width: 44px;
+      height: 36px;
+      padding: 2px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    :is(input, textarea, select):focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .error-msg {
+      display: none;
+      color: var(--danger);
+      font-size: 0.82rem;
+      margin-top: 0.15rem;
+    }
+
+    :is(input, textarea):is(:user-invalid, .user-invalid-fallback) {
+      border-color: var(--danger);
+      background-color: var(--danger-bg);
+    }
+
+    :is(input, textarea):is(:user-invalid, .user-invalid-fallback) + .error-msg {
+      display: block;
+    }
+
+    :is(input, textarea):is(:user-valid, .user-valid-fallback) {
+      border-color: var(--ok);
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    @media (max-width: 560px) {
+      .row-2, .row-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .color-pair {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .presets, .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .chip-btn {
+      padding: 0.32rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .chip-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .swatch-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: inline-block;
+    }
+
+    .check-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    @supports not (accent-color: auto) {
+      input[type="checkbox"].visually-hidden {
+        position: absolute !important;
+        clip-path: inset(50%) !important;
+        overflow: hidden !important;
+        width: 1px !important;
+        height: 1px !important;
+        margin: -1px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        white-space: nowrap !important;
+      }
+
+      .check-label {
+        position: relative;
+        padding-left: 1.7rem;
+      }
+
+      .check-label input[type="checkbox"] + span::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 1.1rem;
+        height: 1.1rem;
+        border: 2px solid var(--border);
+        background: var(--surface);
+        border-radius: 4px;
+      }
+
+      .check-label input[type="checkbox"]:focus-visible + span::before {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .check-label input[type="checkbox"]:checked + span::before {
+        background-color: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .check-label input[type="checkbox"]:checked + span::after {
+        content: "✓";
+        position: absolute;
+        left: 0.22rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--accent-text);
+        font-weight: 700;
+        font-size: 0.8rem;
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+      }
+
+      input[type="range"]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 6px;
+        background: linear-gradient(to right, var(--accent) var(--progress, 50%), var(--border) var(--progress, 50%));
+        border-radius: 999px;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        margin-top: -5px;
+      }
+
+      input[type="range"]::-moz-range-track {
+        width: 100%;
+        height: 6px;
+        background: var(--border);
+        border-radius: 999px;
+      }
+
+      input[type="range"]::-moz-range-progress {
+        height: 6px;
+        background: var(--accent);
+        border-radius: 999px;
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: none;
+        cursor: pointer;
+      }
+    }
+
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .range-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.86rem;
+    }
+
+    .dropzone {
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 0.9rem;
+      background: var(--surface-alt);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+    }
+
+    .logo-preview-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .logo-thumb {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: none;
+    }
+
+    .preview-card {
+      position: sticky;
+      top: 1rem;
+    }
+
+    .preview-stage {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image:
+        linear-gradient(45deg, var(--surface-alt) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--surface-alt) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--surface-alt) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--surface-alt) 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    }
+
+    .preview-stage img {
+      max-width: 100%;
+      max-height: 360px;
+      height: auto;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .meta-pill {
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+    }
+
+    .warning-box {
+      display: none;
+      padding: 0.65rem 0.8rem;
+      border-radius: 8px;
+      border: 1px solid var(--warn);
+      background: var(--warn-bg);
+      color: var(--warn);
+      font-size: 0.83rem;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    .btn {
+      padding: 0.62rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .cli-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0.25rem 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>qrforge</span>
+      <span class="brand-badge">Rust QR Studio</span>
+    </div>
+    <span class="hint">Fast native Rust PNG &amp; SVG generation · Automatic contrast &amp; ECC checks</span>
+  </header>
+
+  <main>
+    <form id="qr-form" class="panel stack" novalidate>
+      <div>
+        <h2 class="section-title">1. Payload</h2>
+        <div class="stack">
+          <div class="presets" aria-label="Quick payload templates">
+            <button type="button" class="chip-btn" data-template="https://rust-lang.org">URL</button>
+            <button type="button" class="chip-btn" data-template="WIFI:T:WPA;S:MyNetwork;P:SecretPass;;">Wi-Fi</button>
+            <button type="button" class="chip-btn" data-template="mailto:hello@example.com?subject=Hello">Email</button>
+            <button type="button" class="chip-btn" data-template="Hello from qrforge!">Text</button>
+          </div>
+
+          <div class="field">
+            <label for="qr-data">QR Code Content</label>
+            <span id="qr-data-hint" class="hint">Enter any URL, Wi-Fi string, vCard, or plain text.</span>
+            <textarea
+              id="qr-data"
+              name="data"
+              required
+              aria-describedby="qr-data-hint"
+              aria-invalid="false"
+              data-error="qr-data-error"
+            >https://rust-lang.org</textarea>
+            <div id="qr-data-error" class="error-msg">
+              <span role="img" aria-label="Error">⚠</span> Please enter text or a URL to encode.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <h2 class="section-title">2. Colors &amp; Geometry</h2>
+        <div class="stack">
+          <div class="swatches" aria-label="Color presets">
+            <button type="button" class="chip-btn" data-fg="#000000" data-fg-end="" data-bg="#ffffff">
+              <span class="swatch-dot" style="background:#000000"></span>Classic
+            </button>
+            <button type="button" class="chip-btn" data-fg="#0f172a" data-fg-end="#2563eb" data-bg="#f8fafc">
+              <span class="swatch-dot" style="background:#2563eb"></span>Ocean
+            </button>
+            <button type="button" class="chip-btn" data-fg="#064e3b" data-fg-end="#10b981" data-bg="#ecfdf5">
+              <span class="swatch-dot" style="background:#10b981"></span>Emerald
+            </button>
+            <button type="button" class="chip-btn" data-fg="#7c2d12" data-fg-end="#ea580c" data-bg="#fff7ed">
+              <span class="swatch-dot" style="background:#ea580c"></span>Sunset
+            </button>
+            <button type="button" class="chip-btn" data-fg="#312e81" data-fg-end="#7c3aed" data-bg="#f5f3ff">
+              <span class="swatch-dot" style="background:#7c3aed"></span>Royal
+            </button>
+            <button type="button" class="chip-btn" data-fg="#38bdf8" data-fg-end="#818cf8" data-bg="#0f172a">
+              <span class="swatch-dot" style="background:#0f172a"></span>Midnight
+            </button>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="fg-hex">Foreground Color</label>
+              <span id="fg-hex-hint" class="hint">Format: #RRGGBB or #RRGGBBAA</span>
+              <div class="color-pair">
+                <input type="color" id="fg-picker" value="#0f172a" aria-label="Pick foreground color">
+                <input
+                  type="text"
+                  id="fg-hex"
+                  value="#0f172a"
+                  required
+                  pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                  aria-describedby="fg-hex-hint"
+                  aria-invalid="false"
+                  data-error="fg-hex-error"
+                >
+              </div>
+              <div id="fg-hex-error" class="error-msg">
+                <span role="img" aria-label="Error">⚠</span> Enter a valid hex color such as #0f172a.
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="bg-hex">Background Color</label>
+              <span id="bg-hex-hint" class="hint">Format: #RRGGBB, #RRGGBBAA, or transparent</span>
+              <div class="color-pair">
+                <input type="color" id="bg-picker" value="#ffffff" aria-label="Pick background color">
+                <input
+                  type="text"
+                  id="bg-hex"
+                  value="#ffffff"
+                  required
+                  pattern="^(transparent|#?([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))$"
+                  aria-describedby="bg-hex-hint"
+                  aria-invalid="false"
+                  data-error="bg-hex-error"
+                >
+              </div>
+              <div id="bg-hex-error" class="error-msg">
+                <span role="img" aria-label="Error">⚠</span> Enter a valid hex color or "transparent".
+              </div>
+            </div>
+          </div>
+
+          <div class="row-2" style="align-items:center;">
+            <label class="check-label" for="use-gradient">
+              <input type="checkbox" id="use-gradient" class="visually-hidden">
+              <span>Diagonal foreground gradient</span>
+            </label>
+
+            <label class="check-label" for="bg-transparent">
+              <input type="checkbox" id="bg-transparent" class="visually-hidden">
+              <span>Transparent background</span>
+            </label>
+          </div>
+
+          <div class="field" id="gradient-wrap" style="display:none;">
+            <label for="fg-end-hex">Gradient End Color</label>
+            <span id="fg-end-hint" class="hint">Format: #RRGGBB or #RRGGBBAA</span>
+            <div class="color-pair">
+              <input type="color" id="fg-end-picker" value="#2563eb" aria-label="Pick gradient end color">
+              <input
+                type="text"
+                id="fg-end-hex"
+                value="#2563eb"
+                pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                aria-describedby="fg-end-hint"
+                aria-invalid="false"
+                data-error="fg-end-error"
+              >
+            </div>
+            <div id="fg-end-error" class="error-msg">
+              <span role="img" aria-label="Error">⚠</span> Enter a valid hex color such as #2563eb.
+            </div>
+          </div>
+
+          <div class="row-3">
+            <div class="field">
+              <label for="module-style">Module Style</label>
+              <select id="module-style">
+                <option value="square">Square</option>
+                <option value="rounded" selected>Rounded</option>
+                <option value="dots">Dots</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="ecc-level">Error Correction</label>
+              <select id="ecc-level">
+                <option value="auto" selected>Auto (H w/ logo)</option>
+                <option value="L">L (7%)</option>
+                <option value="M">M (15%)</option>
+                <option value="Q">Q (25%)</option>
+                <option value="H">H (30%)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <div class="range-head">
+                <label for="quiet-zone">Quiet Zone</label>
+                <span id="qz-val">4 mod</span>
+              </div>
+              <input type="range" id="quiet-zone" min="0" max="8" value="4">
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="range-head">
+              <label for="qr-size">Output Size</label>
+              <span id="size-val">512 px</span>
+            </div>
+            <input type="range" id="qr-size" min="256" max="1536" step="64" value="512">
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <h2 class="section-title">3. Center Logo (Optional)</h2>
+        <div class="stack">
+          <div id="logo-dropzone" class="dropzone">
+            <div class="logo-preview-wrap">
+              <img id="logo-thumb" class="logo-thumb" alt="Selected center logo preview">
+              <div>
+                <div id="logo-filename" style="font-size:0.86rem;font-weight:600;">No logo selected</div>
+                <div class="hint">PNG, JPEG, WebP, GIF, or BMP — drop a file or choose below</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp">
+              <button type="button" id="logo-clear" class="chip-btn" style="display:none;">Clear</button>
+            </div>
+          </div>
+
+          <div id="logo-options" class="stack" style="display:none;">
+            <div class="row-2">
+              <div class="field">
+                <div class="range-head">
+                  <label for="logo-scale">Logo Size</label>
+                  <span id="logo-scale-val">22%</span>
+                </div>
+                <input type="range" id="logo-scale" min="10" max="30" value="22">
+              </div>
+
+              <div class="field">
+                <div class="range-head">
+                  <label for="logo-padding">Frame Padding</label>
+                  <span id="logo-pad-val">8 px</span>
+                </div>
+                <input type="range" id="logo-padding" min="0" max="24" value="8">
+              </div>
+            </div>
+
+            <div class="row-2">
+              <div class="field">
+                <label for="logo-shape">Backdrop Frame</label>
+                <select id="logo-shape">
+                  <option value="rounded" selected>Rounded</option>
+                  <option value="circle">Circle</option>
+                  <option value="square">Square</option>
+                  <option value="none">None (Raw logo)</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="logo-bg-hex">Backdrop Color (optional)</label>
+                <span id="logo-bg-hint" class="hint">Leave blank to match QR background</span>
+                <div class="color-pair">
+                  <input type="color" id="logo-bg-picker" value="#ffffff" aria-label="Pick logo backdrop color">
+                  <input
+                    type="text"
+                    id="logo-bg-hex"
+                    value=""
+                    placeholder="Auto"
+                    pattern="^$|^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                    aria-describedby="logo-bg-hint"
+                    aria-invalid="false"
+                    data-error="logo-bg-error"
+                  >
+                </div>
+                <div id="logo-bg-error" class="error-msg">
+                  <span role="img" aria-label="Error">⚠</span> Leave blank or enter a valid hex color.
+                </div>
+              </div>
+            </div>
+
+            <label class="check-label" for="clear-logo-modules">
+              <input type="checkbox" id="clear-logo-modules" class="visually-hidden" checked>
+              <span>Clear QR modules behind logo for clean edges</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <section class="panel preview-card stack" aria-label="Live QR Preview">
+      <h2 class="section-title">Live Preview</h2>
+
+      <div class="preview-stage">
+        <img id="qr-preview" alt="Generated QR code preview">
+      </div>
+
+      <div class="meta-row" id="meta-row">
+        <span class="meta-pill" id="meta-time">—</span>
+        <span class="meta-pill" id="meta-version">—</span>
+        <span class="meta-pill" id="meta-ecc">—</span>
+        <span class="meta-pill" id="meta-contrast">—</span>
+      </div>
+
+      <div id="warning-box" class="warning-box" role="status"></div>
+
+      <div class="actions">
+        <button type="button" id="download-png" class="btn primary">Download PNG</button>
+        <button type="button" id="download-svg" class="btn">Download SVG</button>
+        <button type="button" id="copy-png" class="btn">Copy PNG</button>
+        <button type="button" id="copy-cli" class="btn">Copy CLI Command</button>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Equivalent CLI Command</span>
+        <div id="cli-cmd" class="cli-box"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      // Polite live region for announcing validation errors after user interaction.
+      const announcer = document.createElement('div');
+      announcer.setAttribute('aria-live', 'polite');
+      announcer.classList.add('visually-hidden');
+      document.body.append(announcer);
+      let announceTimer;
+      let announcedField;
+
+      const linkError = (el, shown) => {
+        const errorId = el.dataset.error;
+        if (!errorId) return;
+        const ids = (el.getAttribute('aria-describedby') || '').split(/\s+/).filter((id) => id && id !== errorId);
+        if (shown) ids.push(errorId);
+        if (ids.length) el.setAttribute('aria-describedby', ids.join(' '));
+        else el.removeAttribute('aria-describedby');
+      };
+
+      const spokenText = (node) => {
+        const copy = node.cloneNode(true);
+        copy.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
+        copy.querySelectorAll('[role="img"][aria-label]').forEach((n) => n.replaceWith(`${n.getAttribute('aria-label')}: `));
+        return copy.textContent.replace(/\s+/g, ' ').trim();
+      };
+
+      const announceError = (el) => {
+        const error = document.getElementById(el.dataset.error);
+        if (!error) return;
+        const label = el.labels?.[0] ? `${spokenText(el.labels[0])}: ` : '';
+        clearTimeout(announceTimer);
+        announcer.textContent = '';
+        announcedField = el;
+        announceTimer = setTimeout(() => { announcer.textContent = label + spokenText(error); }, 500);
+      };
+
+      const flagged = new WeakSet();
+      const announced = new WeakSet();
+      const syncAria = (el, announce = false) => {
+        if (!el.matches?.('input, select, textarea')) return;
+        const invalid = el.matches(':user-invalid') || el.classList.contains('user-invalid-fallback');
+        if (invalid) {
+          if (announce && !announced.has(el)) {
+            announceError(el);
+            announced.add(el);
+          }
+          el.setAttribute('aria-invalid', 'true');
+          linkError(el, true);
+          flagged.add(el);
+        } else if (flagged.has(el) || el.getAttribute('aria-invalid') !== 'true') {
+          el.setAttribute('aria-invalid', 'false');
+          linkError(el, false);
+          flagged.delete(el);
+          announced.delete(el);
+          if (announcedField === el) {
+            clearTimeout(announceTimer);
+            announcer.textContent = '';
+          }
+        }
+      };
+
+      // Fallback for browsers without :user-invalid support.
+      if (!CSS.supports('selector(:user-invalid)')) {
+        const dirtyState = new WeakMap();
+        const updateFallback = (input) => {
+          const isValid = input.validity.valid;
+          input.classList.toggle('user-invalid-fallback', !isValid);
+          input.classList.toggle('user-valid-fallback', isValid);
+          syncAria(input, true);
+        };
+        document.addEventListener('blur', (e) => {
+          const input = e.target;
+          if (!input.checkValidity) return;
+          const st = dirtyState.get(input) || { hasInteracted: false, hasBlurred: false };
+          st.hasBlurred = true;
+          dirtyState.set(input, st);
+          if (st.hasInteracted) updateFallback(input);
+        }, true);
+        document.addEventListener('input', (e) => {
+          const input = e.target;
+          if (!input.checkValidity) return;
+          const st = dirtyState.get(input) || { hasInteracted: false, hasBlurred: false };
+          st.hasInteracted = true;
+          dirtyState.set(input, st);
+          if (st.hasBlurred) updateFallback(input);
+        });
+      }
+
+      document.querySelectorAll('input, select, textarea').forEach((el) => syncAria(el));
+      document.addEventListener('blur', (e) => syncAria(e.target, true), true);
+      document.addEventListener('input', (e) => {
+        if (e.target.hasAttribute('aria-invalid')) syncAria(e.target);
+      });
+      document.addEventListener('change', (e) => syncAria(e.target, true), true);
+
+      // Update range --progress fallback only when accent-color is unsupported.
+      if (!CSS.supports('accent-color', 'auto')) {
+        const updateRangeProgress = (slider) => {
+          const min = Number(slider.min || 0);
+          const max = Number(slider.max || 100);
+          const pct = ((Number(slider.value) - min) / Math.max(1, max - min)) * 100;
+          slider.style.setProperty('--progress', `${pct}%`);
+        };
+        document.querySelectorAll('input[type="range"]').forEach((r) => {
+          updateRangeProgress(r);
+          r.addEventListener('input', () => updateRangeProgress(r));
+        });
+      }
+
+      const $ = (id) => document.getElementById(id);
+      const dataEl = $('qr-data');
+      const fgPicker = $('fg-picker');
+      const fgHex = $('fg-hex');
+      const bgPicker = $('bg-picker');
+      const bgHex = $('bg-hex');
+      const useGrad = $('use-gradient');
+      const gradWrap = $('gradient-wrap');
+      const fgEndPicker = $('fg-end-picker');
+      const fgEndHex = $('fg-end-hex');
+      const bgTransparent = $('bg-transparent');
+      const styleEl = $('module-style');
+      const eccEl = $('ecc-level');
+      const qzEl = $('quiet-zone');
+      const sizeEl = $('qr-size');
+      const logoFileEl = $('logo-file');
+      const logoDrop = $('logo-dropzone');
+      const logoThumb = $('logo-thumb');
+      const logoName = $('logo-filename');
+      const logoClear = $('logo-clear');
+      const logoOptions = $('logo-options');
+      const logoScaleEl = $('logo-scale');
+      const logoPadEl = $('logo-padding');
+      const logoShapeEl = $('logo-shape');
+      const logoBgPicker = $('logo-bg-picker');
+      const logoBgHex = $('logo-bg-hex');
+      const clearLogoModulesEl = $('clear-logo-modules');
+      const previewImg = $('qr-preview');
+      const warningBox = $('warning-box');
+      const cliCmdEl = $('cli-cmd');
+
+      let logoBase64 = '';
+      let logoFilePathHint = 'logo.png';
+      let currentBlobUrl = null;
+      let latestPngBlob = null;
+      let debounceTimer = null;
+      let activeAbort = null;
+
+      const normalizePickerHex = (val) => {
+        const m = val.trim().match(/^#?([0-9a-fA-F]{6})/);
+        return m ? `#${m[1].toLowerCase()}` : null;
+      };
+
+      const bindColorPair = (picker, textInput) => {
+        picker.addEventListener('input', () => {
+          textInput.value = picker.value;
+          syncAria(textInput);
+          scheduleRender();
+        });
+        textInput.addEventListener('input', () => {
+          const six = normalizePickerHex(textInput.value);
+          if (six) picker.value = six;
+          scheduleRender();
+        });
+      };
+
+      bindColorPair(fgPicker, fgHex);
+      bindColorPair(bgPicker, bgHex);
+      bindColorPair(fgEndPicker, fgEndHex);
+      bindColorPair(logoBgPicker, logoBgHex);
+
+      bgTransparent.addEventListener('change', () => {
+        if (bgTransparent.checked) {
+          bgHex.dataset.prev = bgHex.value !== 'transparent' ? bgHex.value : '#ffffff';
+          bgHex.value = 'transparent';
+        } else {
+          bgHex.value = bgHex.dataset.prev || '#ffffff';
+          const six = normalizePickerHex(bgHex.value);
+          if (six) bgPicker.value = six;
+        }
+        syncAria(bgHex);
+        scheduleRender();
+      });
+
+      useGrad.addEventListener('change', () => {
+        gradWrap.style.display = useGrad.checked ? 'flex' : 'none';
+        scheduleRender();
+      });
+
+      document.querySelectorAll('[data-template]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          dataEl.value = btn.dataset.template;
+          syncAria(dataEl);
+          scheduleRender();
+        });
+      });
+
+      document.querySelectorAll('[data-fg]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          fgHex.value = btn.dataset.fg;
+          fgPicker.value = btn.dataset.fg;
+          bgTransparent.checked = false;
+          bgHex.value = btn.dataset.bg;
+          bgPicker.value = btn.dataset.bg;
+          if (btn.dataset.fgEnd) {
+            useGrad.checked = true;
+            gradWrap.style.display = 'flex';
+            fgEndHex.value = btn.dataset.fgEnd;
+            fgEndPicker.value = btn.dataset.fgEnd;
+          } else {
+            useGrad.checked = false;
+            gradWrap.style.display = 'none';
+          }
+          scheduleRender();
+        });
+      });
+
+      const handleLogoFile = (file) => {
+        if (!file) return;
+        logoFilePathHint = file.name || 'logo.png';
+        const reader = new FileReader();
+        reader.onload = () => {
+          logoBase64 = String(reader.result || '');
+          logoThumb.src = logoBase64;
+          logoThumb.style.display = 'block';
+          logoName.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+          logoClear.style.display = 'inline-flex';
+          logoOptions.style.display = 'flex';
+          scheduleRender();
+        };
+        reader.readAsDataURL(file);
+      };
+
+      logoFileEl.addEventListener('change', () => handleLogoFile(logoFileEl.files?.[0]));
+      logoDrop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        logoDrop.classList.add('dragover');
+      });
+      logoDrop.addEventListener('dragleave', () => logoDrop.classList.remove('dragover'));
+      logoDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        logoDrop.classList.remove('dragover');
+        handleLogoFile(e.dataTransfer?.files?.[0]);
+      });
+
+      logoClear.addEventListener('click', () => {
+        logoBase64 = '';
+        logoFileEl.value = '';
+        logoThumb.style.display = 'none';
+        logoThumb.removeAttribute('src');
+        logoName.textContent = 'No logo selected';
+        logoClear.style.display = 'none';
+        logoOptions.style.display = 'none';
+        scheduleRender();
+      });
+
+      [dataEl, styleEl, eccEl, qzEl, sizeEl, logoScaleEl, logoPadEl, logoShapeEl, clearLogoModulesEl].forEach((el) => {
+        el.addEventListener('input', () => {
+          $('qz-val').textContent = `${qzEl.value} mod`;
+          $('size-val').textContent = `${sizeEl.value} px`;
+          $('logo-scale-val').textContent = `${logoScaleEl.value}%`;
+          $('logo-pad-val').textContent = `${logoPadEl.value} px`;
+          scheduleRender();
+        });
+      });
+
+      const buildPayload = (format) => {
+        const payload = {
+          data: dataEl.value,
+          format,
+          size: Number(sizeEl.value),
+          quiet_zone: Number(qzEl.value),
+          fg: fgHex.value.trim(),
+          fg_end: useGrad.checked ? fgEndHex.value.trim() : null,
+          bg: bgHex.value.trim(),
+          ecc: eccEl.value,
+          style: styleEl.value
+        };
+        if (logoBase64) {
+          payload.logo_base64 = logoBase64;
+          payload.logo_scale = Number(logoScaleEl.value) / 100;
+          payload.logo_padding = Number(logoPadEl.value);
+          payload.logo_shape = logoShapeEl.value;
+          payload.logo_bg = logoBgHex.value.trim() || null;
+          payload.clear_logo_modules = clearLogoModulesEl.checked;
+        }
+        return payload;
+      };
+
+      const shellQuote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+
+      const updateCliSnippet = () => {
+        const parts = ['qrforge', 'generate', shellQuote(dataEl.value), '-o', 'qr.png'];
+        parts.push('--size', sizeEl.value);
+        if (qzEl.value !== '4') parts.push('--quiet-zone', qzEl.value);
+        parts.push('--fg', shellQuote(fgHex.value.trim()));
+        if (useGrad.checked) parts.push('--fg-end', shellQuote(fgEndHex.value.trim()));
+        parts.push('--bg', shellQuote(bgHex.value.trim()));
+        if (styleEl.value !== 'square') parts.push('--style', styleEl.value);
+        if (eccEl.value !== 'auto') parts.push('--ecc', eccEl.value);
+        if (logoBase64) {
+          parts.push('--logo', shellQuote(logoFilePathHint));
+          parts.push('--logo-scale', (Number(logoScaleEl.value) / 100).toFixed(2));
+          parts.push('--logo-padding', logoPadEl.value);
+          parts.push('--logo-shape', logoShapeEl.value);
+          if (logoBgHex.value.trim()) parts.push('--logo-bg', shellQuote(logoBgHex.value.trim()));
+          if (!clearLogoModulesEl.checked) parts.push('--no-clear-logo');
+        }
+        cliCmdEl.textContent = parts.join(' ');
+      };
+
+      const renderPreview = async () => {
+        updateCliSnippet();
+        const form = $('qr-form');
+        if (!form.checkValidity()) return;
+
+        if (activeAbort) activeAbort.abort();
+        activeAbort = new AbortController();
+
+        try {
+          const res = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPayload('png')),
+            signal: activeAbort.signal
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            warningBox.textContent = err.error || 'Failed to generate QR code.';
+            warningBox.style.display = 'block';
+            return;
+          }
+
+          const blob = await res.blob();
+          latestPngBlob = blob;
+          if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+          currentBlobUrl = URL.createObjectURL(blob);
+          previewImg.src = currentBlobUrl;
+
+          const us = Number(res.headers.get('X-QR-Gen-Time-Us') || 0);
+          $('meta-time').textContent = `${(us / 1000).toFixed(2)} ms`;
+          $('meta-version').textContent = `v${res.headers.get('X-QR-Version') || '?'} (${res.headers.get('X-QR-Dimensions') || '?'})`;
+          $('meta-ecc').textContent = `ECC ${res.headers.get('X-QR-Ecc') || '?'}`;
+          const contrast = res.headers.get('X-QR-Contrast');
+          $('meta-contrast').textContent = contrast ? `Contrast ${contrast}:1` : 'Transparent bg';
+
+          const rawWarn = res.headers.get('X-QR-Warnings');
+          if (rawWarn) {
+            const warnings = JSON.parse(rawWarn);
+            warningBox.textContent = warnings.join(' ');
+            warningBox.style.display = warnings.length ? 'block' : 'none';
+          } else {
+            warningBox.style.display = 'none';
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            warningBox.textContent = 'Preview request failed.';
+            warningBox.style.display = 'block';
+          }
+        }
+      };
+
+      const scheduleRender = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(renderPreview, 90);
+      };
+
+      const downloadFormat = async (format) => {
+        if (!$('qr-form').checkValidity()) return;
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildPayload(format))
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `qrforge.${format}`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+
+      $('download-png').addEventListener('click', () => downloadFormat('png'));
+      $('download-svg').addEventListener('click', () => downloadFormat('svg'));
+
+      $('copy-png').addEventListener('click', async () => {
+        if (!latestPngBlob || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return;
+        const btn = $('copy-png');
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': latestPngBlob })]);
+          btn.textContent = 'Copied PNG!';
+          setTimeout(() => { btn.textContent = 'Copy PNG'; }, 1500);
+        } catch {
+          btn.textContent = 'Copy unavailable';
+          setTimeout(() => { btn.textContent = 'Copy PNG'; }, 1500);
+        }
+      });
+
+      $('copy-cli').addEventListener('click', async () => {
+        const btn = $('copy-cli');
+        try {
+          await navigator.clipboard.writeText(cliCmdEl.textContent);
+          btn.textContent = 'Copied CLI!';
+          setTimeout(() => { btn.textContent = 'Copy CLI Command'; }, 1500);
+        } catch {
+          btn.textContent = 'Copy unavailable';
+          setTimeout(() => { btn.textContent = 'Copy CLI Command'; }, 1500);
+        }
+      });
+
+      renderPreview();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+/Users/stevenmeliala/QR\ code\ generator/target/release/libqrforge.rlib: /Users/stevenmeliala/QR\ code\ generator/src/color.rs /Users/stevenmeliala/QR\ code\ generator/src/lib.rs /Users/stevenmeliala/QR\ code\ generator/src/qr.rs /Users/stevenmeliala/QR\ code\ generator/src/server.rs /Users/stevenmeliala/QR\ code\ generator/web/index.html

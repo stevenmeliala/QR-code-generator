@@ -1,0 +1,14 @@
+/Users/stevenmeliala/QR code generator/target/release/build/serde/1fd9456015d24b31/out/serde-1fd9456015d24b31.d: /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/stevenmeliala/QR\ code\ generator/target/release/build/serde/e78aed7ea9b3ff61/out/private.rs
+
+/Users/stevenmeliala/QR code generator/target/release/build/serde/1fd9456015d24b31/out/libserde-1fd9456015d24b31.rlib: /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/stevenmeliala/QR\ code\ generator/target/release/build/serde/e78aed7ea9b3ff61/out/private.rs
+
+/Users/stevenmeliala/QR code generator/target/release/build/serde/1fd9456015d24b31/out/libserde-1fd9456015d24b31.rmeta: /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/stevenmeliala/QR\ code\ generator/target/release/build/serde/e78aed7ea9b3ff61/out/private.rs
+
+/Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/Users/stevenmeliala/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/Users/stevenmeliala/QR\ code\ generator/target/release/build/serde/e78aed7ea9b3ff61/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/stevenmeliala/QR code generator/target/release/build/serde/e78aed7ea9b3ff61/out

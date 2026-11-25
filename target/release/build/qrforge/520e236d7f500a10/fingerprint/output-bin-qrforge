@@ -1,0 +1,1 @@
+{"$message_type":"unused_extern","lint_level":"force-warn","unused_extern_names":["base64","image","png","qrcodegen","serde","serde_json","tiny_http"]}
